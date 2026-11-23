@@ -25,8 +25,10 @@ use cada uno (`.agents/skills/`, etc.).
 | `SKILL.md` | Regla de aprobación, arquitectura intent-first, invariantes, firmas MD5, síntomas → causa, checklist de producción |
 | `plantillas/bancard.ts` | Cliente sin dependencias (Node 18+): `singleBuy`, `verifyConfirmation`, `isApproved`, `getConfirmation`, `rollback`, tarjetas y `charge` |
 | `referencias/implementacion.md` | Esquema SQL, `confirm_payment()` atómica, webhook, cron de reconciliación, iframe en React |
-| `referencias/api.md` | Endpoints, payloads, códigos de respuesta y ambientes |
-| `referencias/pruebas.md` | Datos de sandbox, checklist E2E, homologación, verificación post-deploy |
+| `referencias/api.md` | Ambientes, formatos, operaciones del pago simple y con token, todos los tokens MD5 |
+| `referencias/codigos.md` | Todos los `response_code` agrupados por qué hacer, errores de la API y del catastro |
+| `referencias/operaciones-avanzadas.md` | Preautorización, factura electrónica, Zimple, promociones, IVA de servicios digitales, índice de riesgo |
+| `referencias/pruebas.md` | Datos de sandbox, checklist E2E, lista de test, restricciones de certificación, post-deploy |
 | `scripts/verificar-gate.mjs` | Busca en tu código gates de aprobación relajados (JS/TS, PHP, Python, …) |
 | `scripts/simular-webhook.mjs` | Manda a tu localhost un webhook con firma válida: aprobado, rechazado, sin autorización o firma mala |
 
@@ -39,6 +41,7 @@ node skills/bancard-vpos/scripts/simular-webhook.mjs <shop_process_id> <monto> -
 
 ## Aviso
 
-No es un producto oficial de Bancard ni está afiliado a Bancard S.A. La fuente de verdad es la
-documentación de vPOS que se descarga del portal de comercios; si algo de acá difiere, manda
-esa.
+No es un producto oficial de Bancard ni está afiliado a Bancard S.A. Las referencias son un
+resumen propio de la especificación vPOS 2.0 (Single Buy v1.23), no una copia de la
+documentación oficial, que Bancard entrega a los comercios en su portal
+(comercios.bancard.com.py). Si algo de acá difiere de la versión oficial más nueva, manda esa.

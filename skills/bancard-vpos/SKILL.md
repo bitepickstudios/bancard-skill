@@ -1,6 +1,6 @@
 ---
 name: bancard-vpos
-description: Usar cuando se integra, depura, audita o se lleva a producción el cobro con tarjeta de Bancard vPOS 2.0 (Paraguay, guaraníes) — single_buy, iframe checkout.js, webhook de confirmación (single_buy_confirm), firma MD5, single_buy/confirmations, rollback, pago con token (cards/new, alias_token, charge, 3DS), homologación o lista de test del portal de comercios — y ante síntomas como pedidos marcados pagados con la tarjeta rechazada, cliente cobrado sin pedido, webhook con firma inválida, formulario de tarjeta en blanco, monto cobrado 100 veces menor o "La tarjeta ya ha sido catastrada". Card payment gateway integration, payment webhook, Paraguay.
+description: Usar cuando se integra, depura, audita o se lleva a producción el cobro con tarjeta de Bancard vPOS 2.0 (Paraguay, guaraníes) — single_buy, iframe checkout.js, webhook de confirmación (single_buy_confirm), firma MD5, single_buy/confirmations, rollback, pago con token (cards/new, alias_token, charge, 3DS), preautorización, factura electrónica (billing), Zimple, códigos de respuesta (response_code), homologación o lista de test del portal de comercios — y ante síntomas como pedidos marcados pagados con la tarjeta rechazada, cliente cobrado sin pedido, webhook con firma inválida, formulario de tarjeta en blanco, monto cobrado 100 veces menor o "La tarjeta ya ha sido catastrada". Card payment gateway integration, payment webhook, Paraguay.
 ---
 
 # Bancard vPOS 2.0
@@ -11,6 +11,13 @@ pedidos. Es agnóstica del stack; los ejemplos están en TypeScript/Node y SQL d
 **Principio:** la plata sale (o no sale) de la tarjeta antes de que tu código opine. Todo el
 diseño existe para que tu base coincida con lo que pasó en Bancard — nunca al revés. Ante
 cualquier duda, la verdad se le pregunta a Bancard (`single_buy/confirmations`), no a tu DB.
+
+**Documentación:** las referencias de esta skill cubren la especificación vPOS 2.0 (Single
+Buy v1.23) completa: operaciones, tokens, campos, códigos, preautorización, factura
+electrónica, Zimple, homologación. La documentación oficial la entrega Bancard en el portal de
+comercios (comercios.bancard.com.py); si el proyecto tiene una copia (buscá `bancard*.pdf` /
+`*.txt`, p. ej. en `docs/bancard/`), leela para lo que acá no esté. Ante una diferencia, manda
+la oficial más nueva.
 
 ## Regla de oro: qué es "aprobado"
 
@@ -77,6 +84,9 @@ Código completo (esquema SQL, función atómica, webhook, cron, iframe en React
 | Nunca tocar datos de tarjeta | El iframe es de Bancard (PCI); tu servidor sólo ve tokens |
 | Error de red consultando a Bancard ≠ "no pagó" | No vencer un intent porque falló *tu* llamada |
 | No reintentar cobros rechazados automáticamente | 7 rechazos de la misma tarjeta en 24 h la bloquean 30 días en el comercio |
+| `return_url` no implica éxito | Bancard manda ahí al cliente también si la tarjeta fue rechazada |
+| Pantalla de resultado sin `authorization_number`, `response_code` ni `security_information` | Lo prohíbe Bancard y lo revisa la certificación: mostrar fecha, pedido, importe y `response_description` |
+| `alias_token` recién listado en cada `charge` | Es de un solo uso y vence en minutos |
 
 ## Firmas MD5 (resumen)
 
@@ -94,7 +104,9 @@ importa y un error no avisa: el pedido simplemente falla con `InvalidTokenError`
 | `charge` | `private_key + shop_process_id + "charge" + amount + currency + alias_token` |
 | Borrar tarjeta | `private_key + "delete_card" + user_id + alias_token` |
 
-Endpoints, payloads, códigos y URLs por ambiente: [referencias/api.md](referencias/api.md).
+Preautorización (`"pre-authorization-confirm"`) y factura electrónica (`"billing_client_info"`,
+`"billing_cancel"`) tienen los suyos. Tabla completa, endpoints, payloads y URLs por ambiente:
+[referencias/api.md](referencias/api.md).
 
 ## Síntomas → causa probable
 
@@ -110,6 +122,10 @@ Endpoints, payloads, códigos y URLs por ambiente: [referencias/api.md](referenc
 | Recuadro en blanco donde va la tarjeta | `createForm` atado a un `onLoad` que no se vuelve a disparar (p. ej. `next/script` en un segundo montaje). Esperar a `window.Bancard` con polling |
 | "Verificando pago…" eterno | La página de confirmación no tiene salida. Ofrecerla a los ~45 s (no antes: induce doble pago) |
 | "La tarjeta ya ha sido catastrada" | `card_id` reutilizado: es global del comercio, no por usuario |
+| `CardAliasTokenExpiredError` | Cobrando con un `alias_token` guardado. Listar las tarjetas justo antes del `charge` |
+| El formulario no avanza en una app Android o en Safari | El iframe necesita cookies de terceros: habilitarlas en el WebView; en Safari, "Prevent cross-site tracking" |
+| `response_code` `09` | "Solicitud en proceso": no es un rechazo final. Consultar con `confirmations` más tarde |
+| Qué mensaje mostrar ante un rechazo | Tabla de códigos agrupada por "reintentar / otra tarjeta / fraude / problema del comercio" en [referencias/codigos.md](referencias/codigos.md) |
 | Tarjeta guardada que no aparece | Tabla local desincronizada: reconstruir con upsert desde `users/{id}/cards` |
 | `payment_card_type` siempre null | Viene anidado en `operation.extra_attributes`, no en la raíz |
 | Sandbox no responde | El sandbox usa el puerto **8888**: tiene que estar abierto en tu red/hosting |
@@ -131,6 +147,8 @@ Endpoints, payloads, códigos y URLs por ambiente: [referencias/api.md](referenc
 
 - [plantillas/bancard.ts](plantillas/bancard.ts) — cliente listo para copiar: firmas, llamadas, `isApproved`, `verifyConfirmation`.
 - [referencias/implementacion.md](referencias/implementacion.md) — esquema SQL, `confirm_payment()` atómica, webhook, cron, iframe.
-- [referencias/api.md](referencias/api.md) — endpoints, payloads, códigos de respuesta, ambientes.
-- [referencias/pruebas.md](referencias/pruebas.md) — datos de sandbox, checklist E2E, homologación, post-deploy.
+- [referencias/api.md](referencias/api.md) — ambientes, formatos, todas las operaciones del pago simple y con token, todos los tokens.
+- [referencias/codigos.md](referencias/codigos.md) — los `response_code` (agrupados por qué hacer), claves de error de la API y de catastro.
+- [referencias/operaciones-avanzadas.md](referencias/operaciones-avanzadas.md) — pago con token en detalle, preautorización, factura electrónica, Zimple, promociones, IVA de servicios digitales, índice de riesgo, personalización.
+- [referencias/pruebas.md](referencias/pruebas.md) — datos de sandbox, checklist E2E, lista de test, restricciones de certificación, post-deploy.
 - `scripts/verificar-gate.mjs` — busca gates de aprobación relajados. `scripts/simular-webhook.mjs` — webhook firmado contra localhost.

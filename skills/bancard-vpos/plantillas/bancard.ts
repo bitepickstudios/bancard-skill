@@ -209,6 +209,8 @@ export async function deleteCard(userId: number, aliasToken: string): Promise<Ba
  *  - sin 3DS: isApproved(r.operation) decide, igual que el webhook.
  *  - con 3DS: r.operation.process_id viene con valor y lo demás en null →
  *    montar Bancard.Charge3DS.createForm(container, processId, options) y esperar el webhook.
+ * El alias_token es de UN solo uso y vence en minutos: pasá el que devolvió userCards() recién,
+ * nunca uno guardado (CardAliasTokenExpiredError).
  * NO reintentar automáticamente un rechazo: 7 rechazos de la misma tarjeta en 24 h la bloquean
  * 30 días en el comercio.
  */

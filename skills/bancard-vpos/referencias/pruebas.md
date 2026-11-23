@@ -15,7 +15,11 @@ checklist E2E de abajo son toda tu red antes de tocar plata real.
 |---|---|
 | Teléfono para 3DS / Zimple | `0981123456` |
 | OTP que aprueba | `1234` |
+| Cédula para catastro de tarjetas | `9661000` |
 | Puerto del sandbox | `:8888` (tiene que estar habilitado en tu red/hosting) |
+
+Cuando algo falla en sandbox, lo primero es la **traza** del portal de comercios: muestra cada
+interacción entre vPOS y tu sistema, incluida la respuesta (o el timeout) de tu webhook.
 
 Las tarjetas de prueba las entrega Bancard en el portal de comercios. Para forzar un rechazo,
 usá la tarjeta o el monto que el portal indique como denegado y verificá el `response_code` en
@@ -96,9 +100,19 @@ Cuando la pregunta es "¿esto se cobró de verdad?", la respuesta la tiene Banca
 Bancard exige completar la **lista de test** del portal de comercios en sandbox antes de
 habilitar producción:
 
-1. Cada ítem se marca en verde al ejecutarse con éxito: pago ocasional, confirmación al
-   comercio (webhook respondido con 200), pedido de confirmación (`single_buy/confirmations`),
-   rollback de una transacción aprobada, y los de pago con token si los usás.
+1. Cada ítem se marca en verde al ejecutarse con éxito (sin `test_client`):
+
+   | Ítem de la lista | Qué lo marca |
+   |---|---|
+   | Recibir creación de pago | Un `single_buy` exitoso |
+   | Confirmamos correctamente al comercio | Tu webhook respondió 200 a una confirmación |
+   | Recibimos pedido de confirmación del comercio | Un `single_buy/confirmations` exitoso |
+   | Recibir rollback | Un rollback **manual de una transacción aprobada** |
+   | Solicitud de catastro | Un `cards/new` exitoso (si usás token) |
+   | Recibir tarjetas del usuario | Un listado de tarjetas exitoso (si usás token) |
+   | Pago con alias token | Un `charge` exitoso (si usás token) |
+   | Eliminar tarjeta del usuario | Un DELETE de tarjeta exitoso (si usás token) |
+
 2. Con todo en verde, "Solicitar certificación": se carga la URL a certificar (y usuario/clave
    si hace falta).
 3. Soporte de Bancard hace compras de prueba contra esa URL.
@@ -107,7 +121,18 @@ habilitar producción:
    (`BANCARD_ENV` y `NEXT_PUBLIC_BANCARD_ENV` en la plantilla). Cargar la URL del webhook en el
    perfil de producción del portal.
 
-Logo y nombre del comercio que ve el cliente se cargan en el portal, no en código.
+### Restricciones que revisa la certificación
+
+- **Pantalla de resultado** (después del pago): mostrar fecha y hora, número de pedido
+  (`shop_process_id`), importe y `response_description`. **No** mostrar
+  `authorization_number`, `response_code`, `extended_response_description` ni
+  `security_information`.
+- El sitio o app tiene que tener una sección de **contacto** para consultas de compras.
+- Podés guardar cualquier dato del cliente **salvo** los de la tarjeta (número, CVV,
+  vencimiento): esos viven sólo en el iframe de Bancard.
+- Logo y nombre del comercio se cargan en el portal, no en código. Logo ideal 173 × 55 px
+  (ancho mínimo 85 px).
+- Formulario de pago con al menos 320 px de ancho.
 
 ## Después del deploy a producción
 

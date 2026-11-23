@@ -240,6 +240,12 @@ export async function GET(req: Request) {
 Un intent `expired` puede igual materializarse después: si llega un webhook aprobado tardío,
 `confirm_payment` lo reclama. Por eso vencer es seguro.
 
+Rollback de abandonadas: Bancard pide enviar `single_buy/rollback` también para compras
+abandonadas. Si lo hacés desde este cron (después de que `getConfirmation` dijo "no pagó"),
+mirá la clave de la respuesta: `PaymentNotFoundError` confirma que no había pago, pero
+`RollbackSuccessful` significa que **sí** había uno (el cliente pagó entre la consulta y el
+rollback) y acabás de anularlo: marcá la orden, si llegó a crearse, para revisión.
+
 Verificá que tu hosting permita esa frecuencia (en algunos planes gratuitos, como Vercel Hobby,
 los cron sólo corren una vez por día): si no, usá un scheduler externo contra la misma ruta.
 
@@ -307,6 +313,11 @@ export function BancardCheckout({ processId, confirmUrl }: { processId: string; 
 
 ## 7. Página de confirmación
 
+- Bancard manda al cliente a `return_url` **también cuando la tarjeta fue rechazada**: esta
+  página nunca asume éxito por el solo hecho de cargarse.
+- Con el pago aprobado, mostrar fecha y hora, número de pedido (`shop_process_id`), importe y
+  `response_description`. **Nunca** `authorization_number`, `response_code`,
+  `extended_response_description` ni `security_information` (lo revisa la certificación).
 - Consultar el estado del intent (endpoint propio, por el **uuid** del intent) cada ~3 s.
   `consumed` → mostrar el pedido. `failed` → "el pago fue rechazado" + volver a intentar, que
   arranca un checkout nuevo (intent y `shop_process_id` nuevos).
